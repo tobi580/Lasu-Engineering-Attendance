@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard — LASU Engineering</title>
+    <link rel="shortcut icon" href="logo.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+</head>
+<body>
+    <header class="main-header">
+        <div>
+            <h1>LASU Engineering — Student Attendance</h1>
+            <p>Mark active lectures & track your attendance record</p>
+        </div>
+        <button class="btn-danger" onclick="logout()">Logout</button>
+    </header>
+
+    <main class="dashboard-container">
+        <section class="card profile-banner">
+            <div>
+                <span>Student Name (Surname First)</span>
+                <strong id="displayStudentName">-</strong>
+            </div>
+            <div>
+                <span>Matric Number</span>
+                <strong id="displayMatric">-</strong>
+            </div>
+            <div>
+                <span>Nigerian Phone Number</span>
+                <strong id="displayPhone">-</strong>
+            </div>
+            <div>
+                <span>Department</span>
+                <strong id="displayDepartment">-</strong>
+            </div>
+        </section>
+
+        <section class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                    <h2>Active Attendance Sessions for Your Department</h2>
+                    <p style="font-size: 0.9rem; color: #64748b;">
+                        Only active sessions created for <strong>General</strong> or your department appear here.
+                    </p>
+                </div>
+                <button class="btn-secondary" onclick="refreshStudentDashboard()">Refresh Sessions</button>
+            </div>
+            <p id="formspreeStatus" style="font-size: 0.85rem; color: #16a34a; margin-top: 0.4rem;"></p>
+            <div id="availableSessionsList" class="grid-list"></div>
+        </section>
+
+        <section class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <h2>My Marked Attendance History</h2>
+                <span class="badge badge-open" style="font-size: 0.95rem;">
+                    Total Attended: <strong id="totalMarkedCount">0</strong>
+                </span>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Course / Subject</th>
+                        <th>Target Group</th>
+                        <th>Date & Time Marked</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="myAttendanceHistoryBody"></tbody>
+            </table>
+        </section>
+
+        <section class="card danger-zone">
+            <h2>Permanently Close Account</h2>
+            <p style="font-size: 0.9rem; color: #7f1d1d; margin: 0.4rem 0 0.8rem;">
+                Warning: Closing your account permanently deactivates your profile with <strong>no recovery</strong>. Your name will be removed from the Student Registration table and moved to Deleted Accounts.
+            </p>
+
+            <button id="initiateCloseBtn" class="btn-danger" onclick="startAccountCloseFlow()">
+                Close My Account Permanently
+            </button>
+
+            <div id="doubleCheckBox" class="hidden confirm-panel">
+                <p><strong>Double Check:</strong> Are you sure you really want to permanently deactivate your account? Once deactivated, it cannot be recovered.</p>
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.75rem;">
+                    <button class="btn-danger" onclick="confirmPermanentClosure()">
+                        Yes, Permanently Deactivate Now
+                    </button>
+                    <button class="btn-secondary" onclick="cancelAccountCloseFlow()">
+                        No, Keep My Account
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="student.js"></script>
+</body>
+</html>

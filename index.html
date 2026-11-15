@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LASU Engineering Attendance Portal</title>
+    <link rel="shortcut icon" href="logo.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+</head>
+<body>
+    <header class="main-header">
+        <div>
+            <h1>LASU Engineering Attendance Portal</h1>
+            <p>Faculty of Engineering — Official Attendance Management System</p>
+        </div>
+    </header>
+
+    <main class="auth-container">
+        <div class="tab-buttons">
+            <button id="loginTabBtn" class="active" onclick="switchAuthTab('login')">Login</button>
+            <button id="signupTabBtn" onclick="switchAuthTab('signup')">Student Sign Up</button>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <form id="loginForm" class="auth-form">
+            <h2>Portal Login</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                <p class="hint" style="margin: 0;">Admin: ID <strong>ADMIN</strong> | Pass <strong>admin123</strong></p>
+                <button type="button" class="btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.78rem;" onclick="fillAdminDemo()">Admin Preset</button>
+            </div>
+
+            <label for="loginName">Full Name (Surname First)</label>
+            <input type="text" id="loginName" placeholder="e.g., ADEWALE, John Tunde" required>
+
+            <label for="loginMatric">Matric / Admin ID</label>
+            <input type="text" id="loginMatric" placeholder="e.g., 210211045 or ADMIN" required>
+
+            <label for="loginPhone">Phone Number</label>
+            <input type="tel" id="loginPhone" placeholder="e.g., 08012345678" required>
+
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" placeholder="Enter your password" required>
+
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="button" class="link-btn" onclick="openForgotModal()">Forgot Password?</button>
+            </div>
+
+            <p id="loginError" class="error-msg"></p>
+            <button type="submit" class="btn-primary">Sign In</button>
+        </form>
+
+        <!-- STUDENT SIGN-UP FORM -->
+        <form id="signupForm" class="auth-form hidden">
+            <h2>Student Registration</h2>
+
+            <label for="fullName">Full Name (Surname First)</label>
+            <input type="text" id="fullName" placeholder="e.g., Adewale John Tunde" required>
+
+            <label for="matricNumber">Matric Number</label>
+            <input type="text" id="matricNumber" placeholder="e.g., 210211045" required>
+            <small class="field-note">Last 3 digits must be unique among active students.</small>
+
+            <label for="phoneNumber">Phone Number</label>
+            <input type="tel" id="phoneNumber" placeholder="e.g., 08012345678 or +2348012345678" required>
+
+            <label for="department">Department</label>
+            <select id="department" required>
+                <option value="">-- Select Engineering Department --</option>
+                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                <option value="Electronic & Computer Engineering">Electronic & Computer Engineering</option>
+                <option value="Chemical & Polymer Engineering">Chemical & Polymer Engineering</option>
+                <option value="Civil Engineering">Civil Engineering</option>
+                <option value="Aerospace Engineering">Aerospace Engineering</option>
+                <option value="Industrial & Systems Engineering">Industrial & Systems Engineering</option>
+            </select>
+
+            <label for="signupPassword">Password</label>
+            <input type="password" id="signupPassword" placeholder="Minimum 6 characters" minlength="6" required>
+
+            <label for="confirmPassword">Confirm Password</label>
+            <input type="password" id="confirmPassword" placeholder="Re-enter your password" minlength="6" required>
+
+            <p id="signupMsg" class="error-msg"></p>
+            <button type="submit" class="btn-primary">Register & Continue</button>
+        </form>
+    </main>
+
+    <!-- FORGOT PASSWORD MODAL -->
+    <div id="forgotModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2>Reset Student Password</h2>
+            <p class="hint" style="margin-bottom: 0.75rem;">
+                Verify your registered Name, Matric Number, and Phone Number to set a new password.
+            </p>
+            <form id="forgotForm" style="display: flex; flex-direction: column; gap: 0.7rem;">
+                <label for="fpName">Full Name (Surname First)</label>
+                <input type="text" id="fpName" placeholder="e.g., ADEWALE, John Tunde" required>
+
+                <label for="fpMatric">Matric Number</label>
+                <input type="text" id="fpMatric" placeholder="e.g., 210211045" required>
+
+                <label for="fpPhone">Phone Number</label>
+                <input type="tel" id="fpPhone" placeholder="e.g., 08012345678" required>
+
+                <label for="fpNewPassword">New Password</label>
+                <input type="password" id="fpNewPassword" placeholder="Minimum 6 characters" minlength="6" required>
+
+                <label for="fpConfirmPassword">Confirm New Password</label>
+                <input type="password" id="fpConfirmPassword" placeholder="Re-enter new password" minlength="6" required>
+
+                <p id="fpMessage" class="error-msg"></p>
+
+                <div style="display: flex; gap: 0.6rem; margin-top: 0.4rem;">
+                    <button type="submit" class="btn-primary" style="flex: 1; margin-top: 0;">Update Password</button>
+                    <button type="button" class="btn-secondary" onclick="closeForgotModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+</body>
+</html>
