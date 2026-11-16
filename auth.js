@@ -1,8 +1,7 @@
 const DEFAULT_ADMIN_PRESET = {
     name: "FACULTY ADMIN",
     matric: "ADMIN",
-    phone: "00000000000",
-    password: "admin123"
+    //password: "admin123"
 };
 
 function switchAuthTab(tab) {
@@ -27,7 +26,6 @@ function switchAuthTab(tab) {
 function fillAdminDemo() {
     document.getElementById("loginName").value = DEFAULT_ADMIN_PRESET.name;
     document.getElementById("loginMatric").value = DEFAULT_ADMIN_PRESET.matric;
-    document.getElementById("loginPhone").value = DEFAULT_ADMIN_PRESET.phone;
     document.getElementById("loginPassword").value = DEFAULT_ADMIN_PRESET.password;
 }
 
@@ -134,25 +132,23 @@ document.getElementById("signupForm").addEventListener("submit", async function 
     window.location.href = "student.html";
 });
 
-// Login Handler (Supports Co-Admins on Any Phone + Students)
+// Login Handler: Confirms Name + Matric Number + Password
 document.getElementById("loginForm").addEventListener("submit", async function (e) {
     e.preventDefault();
 
     const loginName = document.getElementById("loginName").value.trim().toUpperCase();
     const loginMatric = document.getElementById("loginMatric").value.trim().toUpperCase();
-    const loginPhone = normalizeNigerianPhone(document.getElementById("loginPhone").value.trim());
     const loginPassword = document.getElementById("loginPassword").value;
     const loginError = document.getElementById("loginError");
 
     loginError.textContent = "";
 
-    // 1. Check Supabase admins table (allows you on phone or another co-admin)
+    // 1. Check Supabase admins table by Name + Admin ID + Password
     const { data: adminMatch } = await supabaseClient
         .from("admins")
         .select("*")
         .eq("admin_id", loginMatric)
         .eq("full_name", loginName)
-        .eq("phone_number", loginPhone)
         .eq("password_plain", loginPassword)
         .maybeSingle();
 
@@ -166,28 +162,28 @@ document.getElementById("loginForm").addEventListener("submit", async function (
         return;
     }
 
-    // 2. Check active students
+    // 2. Check active students by Name + Matric Number
     const { data: student } = await supabaseClient
         .from("students")
         .select("*")
         .eq("matric_number", loginMatric)
         .eq("full_name", loginName)
-        .eq("phone_number", loginPhone)
         .maybeSingle();
 
     if (!student) {
         const { data: wasDeleted } = await supabaseClient
             .from("deleted_accounts")
             .select("matric_number")
-            .or(`matric_number.eq.${loginMatric},phone_number.eq.${loginPhone}`)
+            .eq("matric_number", loginMatric)
             .maybeSingle();
 
         loginError.textContent = wasDeleted
             ? "This account was permanently deactivated and cannot be recovered."
-            : "No active student or admin matches that Name, ID/Matric, and Phone Number.";
+            : "No active student or admin matches that Name and Matric Number.";
         return;
     }
 
+    // 3. Confirm Password
     if (student.password !== loginPassword) {
         loginError.textContent = "Incorrect password. Use 'Forgot Password?' to reset it.";
         return;
@@ -203,7 +199,7 @@ document.getElementById("loginForm").addEventListener("submit", async function (
     window.location.href = "student.html";
 });
 
-// Forgot Password Modal Controls
+// Forgot Password Modal Controls (still uses Name + Matric + Phone for verification)
 function openForgotModal() {
     document.getElementById("fpMessage").textContent = "";
     document.getElementById("fpMessage").className = "error-msg";
