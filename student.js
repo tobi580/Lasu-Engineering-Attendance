@@ -1,15 +1,46 @@
-const currentUser = JSON.parse(localStorage.getItem("lasu_current_user"));
-if (!currentUser || currentUser.role !== "student") {
-    window.location.href = "index.html";
+let currentUser = null;
+
+async function enforceStudentSession() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+        window.location.href = "index.html";
+        return null;
+    }
+
+    const { data: roleRow } = await supabaseClient
+        .from("user_roles")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+    if (!roleRow || roleRow.role !== "student") {
+        window.location.href = "index.html";
+        return null;
+    }
+
+    const { data: activeRow } = await supabaseClient
+        .from("students")
+        .select("matric_number")
+        .eq("matric_number", roleRow.matric_or_admin_id)
+        .maybeSingle();
+
+    if (!activeRow) {
+        await supabaseClient.auth.signOut();
+        window.location.href = "index.html";
+        return null;
+    }
+
+    return {
+        userId: session.user.id,
+        fullName: roleRow.full_name,
+        matricNumber: roleRow.matric_or_admin_id,
+        phoneNumber: roleRow.phone_number,
+        department: roleRow.department
+    };
 }
 
-document.getElementById("displayStudentName").textContent = currentUser.fullName;
-document.getElementById("displayMatric").textContent = currentUser.matricNumber;
-document.getElementById("displayPhone").textContent = currentUser.phoneNumber;
-document.getElementById("displayDepartment").textContent = currentUser.department;
-
-function logout() {
-    localStorage.removeItem("lasu_current_user");
+async function logout() {
+    await supabaseClient.auth.signOut();
     window.location.href = "index.html";
 }
 
@@ -54,7 +85,7 @@ async function confirmPermanentClosure() {
             .eq("matric_number", currentUser.matricNumber);
     }
 
-    localStorage.removeItem("lasu_current_user");
+    await supabaseClient.auth.signOut();
     alert("Your account has been permanently deactivated and moved to Deleted Accounts.");
     window.location.href = "index.html";
 }
@@ -227,29 +258,19 @@ async function renderMyHistory() {
     });
 }
 
-async function verifyStudentStillActive() {
-    const { data: activeRow } = await supabaseClient
-        .from("students")
-        .select("matric_number")
-        .eq("matric_number", currentUser.matricNumber)
-        .maybeSingle();
-
-    if (!activeRow) {
-        localStorage.removeItem("lasu_current_user");
-        window.location.href = "index.html";
-        return false;
-    }
-    return true;
-}
-
 function refreshStudentDashboard() {
     renderAvailableSessions();
     renderMyHistory();
 }
 
 (async function init() {
-    const ok = await verifyStudentStillActive();
-    if (ok) {
-        refreshStudentDashboard();
-    }
+    currentUser = await enforceStudentSession();
+    if (!currentUser) return;
+
+    document.getElementById("displayStudentName").textContent = currentUser.fullName;
+    document.getElementById("displayMatric").textContent = currentUser.matricNumber;
+    document.getElementById("displayPhone").textContent = currentUser.phoneNumber;
+    document.getElementById("displayDepartment").textContent = currentUser.department;
+
+    refreshStudentDashboard();
 })();

@@ -1,9 +1,3 @@
-const DEFAULT_ADMIN_PRESET = {
-    name: "FACULTY ADMIN",
-    matric: "ADMIN",
-    //password: "admin123"
-};
-
 function switchAuthTab(tab) {
     const loginForm = document.getElementById("loginForm");
     const signupForm = document.getElementById("signupForm");
@@ -23,12 +17,6 @@ function switchAuthTab(tab) {
     }
 }
 
-function fillAdminDemo() {
-    document.getElementById("loginName").value = DEFAULT_ADMIN_PRESET.name;
-    document.getElementById("loginMatric").value = DEFAULT_ADMIN_PRESET.matric;
-    document.getElementById("loginPassword").value = DEFAULT_ADMIN_PRESET.password;
-}
-
 function normalizeNigerianPhone(rawPhone) {
     const digits = rawPhone.replace(/\D/g, "");
     if (digits.startsWith("234") && digits.length === 13) {
@@ -41,7 +29,12 @@ function isValidNigerianPhone(normalizedPhone) {
     return /^(070|080|081|090|091)\d{8}$/.test(normalizedPhone);
 }
 
-// Sign-Up Handler (Supabase)
+function matricToAuthEmail(matricOrId) {
+    const clean = matricOrId.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    return `${clean}@portal.lasu-eng.local`;
+}
+
+// Student Sign-Up Handler (Supabase Auth + Students & Roles Tables)
 document.getElementById("signupForm").addEventListener("submit", async function (e) {
     e.preventDefault();
 
@@ -72,67 +65,50 @@ document.getElementById("signupForm").addEventListener("submit", async function 
 
     const newLast3 = matricNumber.slice(-3);
 
-    const { data: existingMatric } = await supabaseClient
-        .from("students")
-        .select("matric_number")
-        .eq("matric_number", matricNumber)
-        .maybeSingle();
+    const { data: authData, error: authError } = await supabaseClient.auth.signUp({
+        email: matricToAuthEmail(matricNumber),
+        password
+    });
 
-    if (existingMatric) {
-        signupMsg.textContent = "This Matric Number is already registered to an active account.";
+    if (authError || !authData.user) {
+        signupMsg.textContent = authError ? authError.message : "Registration failed.";
         return;
     }
 
-    const { data: existingPhone } = await supabaseClient
-        .from("students")
-        .select("phone_number")
-        .eq("phone_number", phoneNumber)
-        .maybeSingle();
+    const registeredAt = new Date().toLocaleString();
 
-    if (existingPhone) {
-        signupMsg.textContent = "This phone number is already in use by an active account.";
-        return;
-    }
-
-    const { data: existingLast3 } = await supabaseClient
-        .from("students")
-        .select("matric_last3")
-        .eq("matric_last3", newLast3)
-        .maybeSingle();
-
-    if (existingLast3) {
-        signupMsg.textContent = `Registration blocked: Another active student already uses a matric number ending with '${newLast3}'.`;
-        return;
-    }
-
-    const newStudent = {
+    const { error: studentError } = await supabaseClient.from("students").insert({
         full_name: fullName,
         matric_number: matricNumber,
         matric_last3: newLast3,
         phone_number: phoneNumber,
         department,
-        password,
-        registered_at: new Date().toLocaleString()
-    };
+        registered_at: registeredAt
+    });
 
-    const { error } = await supabaseClient.from("students").insert(newStudent);
-    if (error) {
-        signupMsg.textContent = "Registration failed: " + error.message;
+    if (studentError) {
+        signupMsg.textContent = "Registration blocked: " + studentError.message;
         return;
     }
 
-    localStorage.setItem("lasu_current_user", JSON.stringify({
+    const { error: roleError } = await supabaseClient.from("user_roles").insert({
+        user_id: authData.user.id,
         role: "student",
-        fullName: newStudent.full_name,
-        matricNumber: newStudent.matric_number,
-        phoneNumber: newStudent.phone_number,
-        department: newStudent.department
-    }));
+        matric_or_admin_id: matricNumber,
+        full_name: fullName,
+        phone_number: phoneNumber,
+        department
+    });
+
+    if (roleError) {
+        signupMsg.textContent = "Profile setup failed: " + roleError.message;
+        return;
+    }
 
     window.location.href = "student.html";
 });
 
-// Login Handler: Confirms Name + Matric Number + Password
+// Login Handler: Confirms Name + Matric/Admin ID + Password via Supabase Auth
 document.getElementById("loginForm").addEventListener("submit", async function (e) {
     e.preventDefault();
 
@@ -143,116 +119,27 @@ document.getElementById("loginForm").addEventListener("submit", async function (
 
     loginError.textContent = "";
 
-    // 1. Check Supabase admins table by Name + Admin ID + Password
-    const { data: adminMatch } = await supabaseClient
-        .from("admins")
+    const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+        email: matricToAuthEmail(loginMatric),
+        password: loginPassword
+    });
+
+    if (authError || !authData.user) {
+        loginError.textContent = "Invalid Matric/Admin ID or password.";
+        return;
+    }
+
+    const { data: roleRow } = await supabaseClient
+        .from("user_roles")
         .select("*")
-        .eq("admin_id", loginMatric)
-        .eq("full_name", loginName)
-        .eq("password_plain", loginPassword)
+        .eq("user_id", authData.user.id)
         .maybeSingle();
 
-    if (adminMatch) {
-        localStorage.setItem("lasu_current_user", JSON.stringify({
-            role: "admin",
-            name: adminMatch.full_name,
-            adminId: adminMatch.admin_id
-        }));
-        window.location.href = "admin.html";
+    if (!roleRow || roleRow.full_name.trim().toUpperCase() !== loginName || roleRow.matric_or_admin_id.trim().toUpperCase() !== loginMatric) {
+        await supabaseClient.auth.signOut();
+        loginError.textContent = "Full Name and Matric/Admin ID do not match this account.";
         return;
     }
 
-    // 2. Check active students by Name + Matric Number
-    const { data: student } = await supabaseClient
-        .from("students")
-        .select("*")
-        .eq("matric_number", loginMatric)
-        .eq("full_name", loginName)
-        .maybeSingle();
-
-    if (!student) {
-        const { data: wasDeleted } = await supabaseClient
-            .from("deleted_accounts")
-            .select("matric_number")
-            .eq("matric_number", loginMatric)
-            .maybeSingle();
-
-        loginError.textContent = wasDeleted
-            ? "This account was permanently deactivated and cannot be recovered."
-            : "No active student or admin matches that Name and Matric Number.";
-        return;
-    }
-
-    // 3. Confirm Password
-    if (student.password !== loginPassword) {
-        loginError.textContent = "Incorrect password. Use 'Forgot Password?' to reset it.";
-        return;
-    }
-
-    localStorage.setItem("lasu_current_user", JSON.stringify({
-        role: "student",
-        fullName: student.full_name,
-        matricNumber: student.matric_number,
-        phoneNumber: student.phone_number,
-        department: student.department
-    }));
-    window.location.href = "student.html";
-});
-
-// Forgot Password Modal Controls (still uses Name + Matric + Phone for verification)
-function openForgotModal() {
-    document.getElementById("fpMessage").textContent = "";
-    document.getElementById("fpMessage").className = "error-msg";
-    document.getElementById("forgotForm").reset();
-    document.getElementById("forgotModal").classList.remove("hidden");
-}
-
-function closeForgotModal() {
-    document.getElementById("forgotModal").classList.add("hidden");
-}
-
-document.getElementById("forgotForm").addEventListener("submit", async function (e) {
-    e.preventDefault();
-
-    const fpName = document.getElementById("fpName").value.trim().toUpperCase();
-    const fpMatric = document.getElementById("fpMatric").value.trim().toUpperCase();
-    const fpPhone = normalizeNigerianPhone(document.getElementById("fpPhone").value.trim());
-    const newPass = document.getElementById("fpNewPassword").value;
-    const confirmPass = document.getElementById("fpConfirmPassword").value;
-    const fpMessage = document.getElementById("fpMessage");
-
-    if (newPass !== confirmPass) {
-        fpMessage.className = "error-msg";
-        fpMessage.textContent = "New passwords do not match.";
-        return;
-    }
-
-    const { data: student } = await supabaseClient
-        .from("students")
-        .select("id")
-        .eq("full_name", fpName)
-        .eq("matric_number", fpMatric)
-        .eq("phone_number", fpPhone)
-        .maybeSingle();
-
-    if (!student) {
-        fpMessage.className = "error-msg";
-        fpMessage.textContent = "Verification failed: Name, Matric Number, and Phone Number do not match any active account.";
-        return;
-    }
-
-    const { error } = await supabaseClient
-        .from("students")
-        .update({ password: newPass })
-        .eq("id", student.id);
-
-    if (error) {
-        fpMessage.className = "error-msg";
-        fpMessage.textContent = "Could not update password: " + error.message;
-        return;
-    }
-
-    fpMessage.className = "success-msg";
-    fpMessage.textContent = "Password updated successfully! You can now log in.";
-    setTimeout(() => closeForgotModal(), 1400);
+    window.location.href = roleRow.role === "admin" ? "admin.html" : "student.html";
 });
